@@ -14,7 +14,7 @@ def test_check_env(pista):
 def test_observacion_y_estado_interno():
     env = CarroPistaEnv()
     obs, info = env.reset(seed=1)
-    assert obs.shape == (7,) and obs.dtype == np.float32
+    assert obs.shape == (10,) and obs.dtype == np.float32
     assert env.unwrapped.estado.shape == (7,)
     assert {"s", "lateral", "progreso", "velocidad"} <= set(info)
 
@@ -68,6 +68,10 @@ def test_varias_pistas_y_inicio_aleatorio():
     assert len(vistas) == 3
 
 
-def test_observacion_extendida():
-    env = CarroPistaEnv(observacion_extendida=True)
-    assert env.reset(seed=0)[0].shape == (10,)
+def test_velocidad_en_la_observacion():
+    env = CarroPistaEnv()
+    env.reset(seed=0)
+    for _ in range(40):
+        obs, *_ = env.step([1.0, 0.0])
+    assert obs[7] > 0.05  # u normalizada crece al acelerar
+    assert CarroPistaEnv(observar_dinamica=False).reset(seed=0)[0].shape == (7,)

@@ -1,4 +1,0 @@
-gymnasium>=1.0
-numpy
-matplotlib   # solo para render
-pytest       # solo para tests

@@ -21,9 +21,9 @@ class CarroPistaEnv(gym.Env):
         fuerza   > 0 traccion, < 0 frenado (nunca las dos a la vez).
         direccion  angulo objetivo del volante (el real lo sigue con limite de velocidad).
 
-    Observacion (Box, 7): distancia de cada sensor al borde de la pista, normalizada
+    Observacion (Box, 10): distancia de cada sensor al borde de la pista, normalizada
         por `alcance` (0 = borde pegado, 1 = nada hasta el alcance). Con
-        `observacion_extendida=True` se anaden u, v, r normalizadas (3 valores mas).
+        `observar_dinamica=True` (por defecto) se anaden u, v, r normalizadas (3 valores mas); con False solo los rayos.
 
     Estado interno (`env.unwrapped.estado`): [x, y, psi, u, v, r, delta] + posicion
         en la pista (`info["s"]`, `info["lateral"]`).
@@ -55,7 +55,7 @@ class CarroPistaEnv(gym.Env):
         max_pasos: int = 3000,
         tiempo_sin_progreso: float = 10.0,
         inicio_aleatorio: bool = False,
-        observacion_extendida: bool = False,
+        observar_dinamica: bool = True,
         velocidad_ref: float = 20.0,
         peso_progreso: float = 10.0,
         penal_tiempo: float = 0.05,
@@ -73,7 +73,7 @@ class CarroPistaEnv(gym.Env):
         self.max_pasos = max_pasos
         self.max_sin_mejora = int(round(tiempo_sin_progreso / dt))
         self.inicio_aleatorio = inicio_aleatorio
-        self.observacion_extendida = observacion_extendida
+        self.observar_dinamica = observar_dinamica
         self.velocidad_ref = velocidad_ref
         self.peso_progreso, self.penal_tiempo = peso_progreso, penal_tiempo
         self.bono_vuelta, self.penal_choque, self.penal_truncado = bono_vuelta, penal_choque, penal_truncado
@@ -81,7 +81,7 @@ class CarroPistaEnv(gym.Env):
         self._visor = None
 
         self.action_space = spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
-        n_obs = len(ANGULOS_SENSORES) + (3 if observacion_extendida else 0)
+        n_obs = len(ANGULOS_SENSORES) + (3 if observar_dinamica else 0)
         bajo = np.concatenate([np.zeros(len(ANGULOS_SENSORES)), -np.ones(n_obs - len(ANGULOS_SENSORES))])
         self.observation_space = spaces.Box(bajo.astype(np.float32), np.ones(n_obs, np.float32), dtype=np.float32)
 
@@ -161,7 +161,7 @@ class CarroPistaEnv(gym.Env):
     def _observar(self) -> np.ndarray:
         self._rayos = self.pista.distancias_rayos(self.estado[:2], self.estado[2], ANGULOS_SENSORES, self.alcance)
         obs = self._rayos / self.alcance
-        if self.observacion_extendida:
+        if self.observar_dinamica:
             u, v, r = self.estado[3:6]
             obs = np.concatenate([obs, np.clip([u / 40.0, v / 10.0, r / 2.0], -1, 1)])
         return obs.astype(np.float32)
