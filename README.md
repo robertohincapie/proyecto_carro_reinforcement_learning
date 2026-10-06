@@ -26,3 +26,5 @@ uv run pytest -q
 uv run python -m ejemplos.piloto_heuristico circuito --render   # línea base sin aprendizaje
 uv add stable-baselines3                  # añadir dependencias
 ```
+
+Detalle del modelo (pista, dinámica, observación, acciones y recompensa): [MODELO.md](MODELO.md).
