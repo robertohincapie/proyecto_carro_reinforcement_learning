@@ -14,7 +14,7 @@ env = gym.make("CarroPista-v0", pista=["ovalo", "trebol"], inicio_aleatorio=True
   más la dinámica del carro: velocidad longitudinal u/40, lateral v/10 y de giro r/2 (recortadas a [−1, 1]).
   `observar_dinamica=False` deja solo los 7 rayos.
 - **Estado interno** `env.unwrapped.estado = [x, y, psi, u, v, r, delta]` + `info["s"]`, `info["lateral"]`.
-- **Recompensa**: progreso por paso − penalización de tiempo; al completar la vuelta bono ∝ 1/tiempo de vuelta;
+- **Recompensa**: progreso por paso + premio ∝ velocidad longitudinal u − penalización de tiempo; al completar la vuelta bono ∝ 1/tiempo de vuelta;
   al chocar `-penal_choque`. `terminated` = choque o vuelta; `truncated` = `max_pasos` o 10 s sin mejorar el progreso.
 - **Derrape**: modelo de bicicleta con neumáticos saturados (círculo de fricción), ver `carro_rl/dinamica.py`.
 

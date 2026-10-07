@@ -24,7 +24,7 @@ También se puede instanciar directo: `from carro_rl import CarroPistaEnv`.
 | `observar_dinamica` | `True` (por defecto): la observación incluye velocidades. `False`: solo los 7 rayos. |
 | `alcance` | Distancia máxima de los sensores (60 m). |
 | `max_pasos`, `tiempo_sin_progreso` | Criterios de truncamiento. |
-| `peso_progreso`, `penal_tiempo`, `bono_vuelta`, `penal_choque`, `penal_truncado`, `velocidad_ref` | Constantes de la recompensa. |
+| `peso_progreso`, `peso_velocidad`, `penal_tiempo`, `bono_vuelta`, `penal_choque`, `penal_truncado`, `velocidad_ref` | Constantes de la recompensa. |
 | `carro` | Un `ParametrosCarro` con masa, agarre, fuerzas y límites de dirección. |
 
 ## Pista
@@ -72,10 +72,12 @@ Los ángulos positivos apuntan a la izquierda. El agente no ve su posición en l
 En cada paso:
 
 ```
-r = peso_progreso · (avance / longitud_pista)  −  penal_tiempo · dt
+r = peso_progreso · (avance / longitud_pista)  +  peso_velocidad · (u / velocidad_ref) · dt  −  penal_tiempo · dt
 ```
 
 Con los valores por defecto, una vuelta completa suma +10 por progreso y cada segundo resta 0.05.
+El término de velocidad premia la velocidad longitudinal `u` (con signo: ir en reversa resta): a 20 m/s
+suma 0.5 por segundo, a 40 m/s suma 1. Así quedarse quieto deja de ser una opción cómoda para el agente.
 
 | Evento | Efecto |
 |---|---|
@@ -83,7 +85,7 @@ Con los valores por defecto, una vuelta completa suma +10 por progreso y cada se
 | Choque | `− penal_choque` (10) |
 | Truncamiento | `+ penal_truncado` (0 por defecto) |
 
-El bono de vuelta solo aparece si el agente completa una vuelta; los términos de progreso y de tiempo son los
+El bono de vuelta solo aparece si el agente completa una vuelta; los términos de progreso, velocidad y tiempo son los
 que guían el aprendizaje desde el inicio.
 
 ## Fin de episodio

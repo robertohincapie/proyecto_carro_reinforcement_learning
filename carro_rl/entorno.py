@@ -30,6 +30,7 @@ class CarroPistaEnv(gym.Env):
 
     Recompensa por paso:
         + peso_progreso * (avance / longitud_pista)   (una vuelta completa suma peso_progreso)
+        + peso_velocidad * (u / velocidad_ref) * dt   (u = velocidad longitudinal; negativa en reversa)
         - penal_tiempo * dt
         Al completar la vuelta: + bono_vuelta * t_ref / t_vuelta   (inversa al tiempo de vuelta)
         Al chocar:             - penal_choque
@@ -58,6 +59,7 @@ class CarroPistaEnv(gym.Env):
         observar_dinamica: bool = True,
         velocidad_ref: float = 20.0,
         peso_progreso: float = 10.0,
+        peso_velocidad: float = 0.5,
         penal_tiempo: float = 0.05,
         bono_vuelta: float = 20.0,
         penal_choque: float = 10.0,
@@ -76,6 +78,7 @@ class CarroPistaEnv(gym.Env):
         self.observar_dinamica = observar_dinamica
         self.velocidad_ref = velocidad_ref
         self.peso_progreso, self.penal_tiempo = peso_progreso, penal_tiempo
+        self.peso_velocidad = peso_velocidad
         self.bono_vuelta, self.penal_choque, self.penal_truncado = bono_vuelta, penal_choque, penal_truncado
         self.render_mode = render_mode
         self._visor = None
@@ -121,7 +124,11 @@ class CarroPistaEnv(gym.Env):
         choque = self._hay_choque()
         vuelta = (not choque) and self.progreso >= self.pista.longitud
 
-        recompensa = self.peso_progreso * ds / self.pista.longitud - self.penal_tiempo * self.dt
+        recompensa = (
+            self.peso_progreso * ds / self.pista.longitud
+            + self.peso_velocidad * self.estado[3] / self.velocidad_ref * self.dt
+            - self.penal_tiempo * self.dt
+        )
         if vuelta:
             recompensa += self.bono_vuelta * self.t_ref / (self.pasos * self.dt)
         if choque:
