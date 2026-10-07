@@ -21,10 +21,11 @@ También se puede instanciar directo: `from carro_rl import CarroPistaEnv`.
 |---|---|
 | `pista` | Nombre (`"ovalo"`, `"circuito"`, `"trebol"`), una `Pista`, un arreglo de puntos de control (K, 2), o una **lista** de pistas (cada `reset` elige una al azar). |
 | `inicio_aleatorio` | Si es `True`, el carro arranca en un punto aleatorio de la pista. |
+| `velocidad_inicial` | Velocidad longitudinal (m/s) con la que arranca el carro en cada reset; 5 por defecto. |
 | `observar_dinamica` | `True` (por defecto): la observación incluye velocidades. `False`: solo los 7 rayos. |
 | `alcance` | Distancia máxima de los sensores (60 m). |
 | `max_pasos`, `tiempo_sin_progreso` | Criterios de truncamiento. |
-| `peso_progreso`, `peso_velocidad`, `penal_tiempo`, `bono_vuelta`, `penal_choque`, `penal_truncado`, `velocidad_ref` | Constantes de la recompensa. |
+| `peso_progreso`, `peso_velocidad`, `penal_quieto`, `velocidad_min`, `penal_tiempo`, `bono_vuelta`, `penal_choque`, `penal_truncado`, `penal_estancado`, `velocidad_ref` | Constantes de la recompensa. |
 | `carro` | Un `ParametrosCarro` con masa, agarre, fuerzas y límites de dirección. |
 
 ## Pista
@@ -72,20 +73,31 @@ Los ángulos positivos apuntan a la izquierda. El agente no ve su posición en l
 En cada paso:
 
 ```
-r = peso_progreso · (avance / longitud_pista)  +  peso_velocidad · (u / velocidad_ref) · dt  −  penal_tiempo · dt
+r = peso_progreso · (avance / longitud_pista)
+  + peso_velocidad · (u / velocidad_ref) · dt
+  − penal_quieto · max(0, 1 − u / velocidad_min) · dt
+  − penal_tiempo · dt
 ```
 
 Con los valores por defecto, una vuelta completa suma +10 por progreso y cada segundo resta 0.05.
-El término de velocidad premia la velocidad longitudinal `u` (con signo: ir en reversa resta): a 20 m/s
-suma 0.5 por segundo, a 40 m/s suma 1. Así quedarse quieto deja de ser una opción cómoda para el agente.
+El término de velocidad premia la velocidad longitudinal `u` (el carro no tiene marcha atrás, `u ≥ 0`):
+a 20 m/s suma 0.5 por segundo, a 40 m/s suma 1. El término `penal_quieto` castiga ir por debajo de
+`velocidad_min` (5 m/s), de forma lineal: detenido resta 0.2 por segundo, a 2.5 m/s resta 0.1 y desde 5 m/s
+nada, así que el agente siempre tiene un gradiente que lo empuja a acelerar. No conviene subirlo mucho: con 0.5,
+una política que avanza despacio acumula más castigo que una que se detiene. Como el corte por falta de progreso cuesta lo mismo que un choque (`penal_estancado`),
+quedarse quieto (≈ −12.6) nunca sale mejor que intentar avanzar.
+
+Además el carro arranca cada episodio con `velocidad_inicial` (5 m/s por defecto), de modo que una política
+que apenas acelera ya avanza y ve recompensa por progreso desde el principio.
 
 | Evento | Efecto |
 |---|---|
 | Vuelta completada | `+ bono_vuelta · t_ref / t_vuelta` (20 por defecto), con `t_ref = longitud / velocidad_ref` y `velocidad_ref = 20 m/s`. A 20 m/s promedio el bono es 20; con el doble de tiempo, 10. |
 | Choque | `− penal_choque` (10) |
 | Truncamiento | `+ penal_truncado` (0 por defecto) |
+| Truncamiento por 10 s sin progreso | además `− penal_estancado` (10, igual que chocar) |
 
-El bono de vuelta solo aparece si el agente completa una vuelta; los términos de progreso, velocidad y tiempo son los
+El bono de vuelta solo aparece si el agente completa una vuelta; los términos de progreso, velocidad, quieto y tiempo son los
 que guían el aprendizaje desde el inicio.
 
 ## Fin de episodio

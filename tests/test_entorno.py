@@ -56,7 +56,7 @@ def test_truncamiento_por_estar_quieto():
     env = CarroPistaEnv(tiempo_sin_progreso=2.0)
     env.reset(seed=0)
     for _ in range(100):
-        _, _, term, trunc, _ = env.step([0.0, 0.0])
+        _, _, term, trunc, _ = env.step([-1.0, 0.0])  # frena: arranca con velocidad_inicial
         if trunc:
             break
     assert trunc and not term
