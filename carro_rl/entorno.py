@@ -33,14 +33,10 @@ class CarroPistaEnv(gym.Env):
         en la pista (`info["s"]`, `info["lateral"]`).
 
     Recompensa por paso:
-        + peso_progreso * (avance / longitud_pista)   (una vuelta completa suma peso_progreso)
-        + peso_velocidad * (u / velocidad_ref) * dt   (u = velocidad longitudinal)
-        - penal_quieto * max(0, 1 - u / velocidad_min) * dt   (castiga ir mas lento que velocidad_min)
-        - penal_tiempo * dt
-        Al completar la vuelta: + bono_vuelta * t_ref / t_vuelta   (inversa al tiempo de vuelta)
-        Al chocar:             - penal_choque
-        Al truncar:            + penal_truncado (0 por defecto)
-        Al truncar por quedarse sin progreso: ademas - penal_estancado (igual al choque por defecto)
+        peso_velocidad * (u / velocidad_ref) * dt   (u = velocidad longitudinal)
+        Con los valores por defecto (peso_velocidad=1), ir justo a velocidad_ref da +1 por
+        segundo. No hay penalizacion por chocar: simplemente el episodio termina ahi, asi que
+        la recompensa deja de crecer.
 
     terminated: choque (alguna esquina fuera de la calzada) o vuelta completada.
     truncated:  `max_pasos` alcanzados o sin mejorar el mejor progreso en `tiempo_sin_progreso` s.
@@ -68,15 +64,7 @@ class CarroPistaEnv(gym.Env):
         velocidad_inicial: float = 5.0,
         aceleracion_base: float = 0.5,
         velocidad_ref: float = 20.0,
-        peso_progreso: float = 10.0,
-        peso_velocidad: float = 0.5,
-        penal_quieto: float = 0.2,
-        velocidad_min: float = 5.0,
-        penal_tiempo: float = 0.05,
-        bono_vuelta: float = 20.0,
-        penal_choque: float = 10.0,
-        penal_truncado: float = 0.0,
-        penal_estancado: float = 10.0,
+        peso_velocidad: float = 1.0,
     ):
         super().__init__()
         specs = pista if isinstance(pista, (list, tuple)) and not _es_puntos(pista) else [pista]
@@ -92,11 +80,7 @@ class CarroPistaEnv(gym.Env):
         self.velocidad_inicial = velocidad_inicial
         self.aceleracion_base = aceleracion_base
         self.velocidad_ref = velocidad_ref
-        self.peso_progreso, self.penal_tiempo = peso_progreso, penal_tiempo
         self.peso_velocidad = peso_velocidad
-        self.penal_quieto, self.velocidad_min = penal_quieto, velocidad_min
-        self.bono_vuelta, self.penal_choque, self.penal_truncado = bono_vuelta, penal_choque, penal_truncado
-        self.penal_estancado = penal_estancado
         self.render_mode = render_mode
         self._visor = None
 
@@ -123,7 +107,6 @@ class CarroPistaEnv(gym.Env):
         self.mejor_progreso = 0.0
         self.pasos = 0
         self.pasos_sin_mejora = 0
-        self.t_ref = self.pista.longitud / self.velocidad_ref
         return self._observar(), self._info(False, False)
 
     def step(self, accion):
@@ -142,16 +125,7 @@ class CarroPistaEnv(gym.Env):
         choque = self._hay_choque()
         vuelta = (not choque) and self.progreso >= self.pista.longitud
 
-        recompensa = (
-            self.peso_progreso * ds / self.pista.longitud
-            + self.peso_velocidad * self.estado[3] / self.velocidad_ref * self.dt
-            - self.penal_quieto * max(0.0, 1.0 - self.estado[3] / self.velocidad_min) * self.dt
-            - self.penal_tiempo * self.dt
-        )
-        if vuelta:
-            recompensa += self.bono_vuelta * self.t_ref / (self.pasos * self.dt)
-        if choque:
-            recompensa -= self.penal_choque
+        recompensa = self.peso_velocidad * self.estado[3] / self.velocidad_ref * self.dt
 
         if self.progreso > self.mejor_progreso + 1e-6:
             self.mejor_progreso, self.pasos_sin_mejora = self.progreso, 0
@@ -160,10 +134,6 @@ class CarroPistaEnv(gym.Env):
         terminado = choque or vuelta
         estancado = self.pasos_sin_mejora >= self.max_sin_mejora
         truncado = (not terminado) and (self.pasos >= self.max_pasos or estancado)
-        if truncado:
-            recompensa += self.penal_truncado
-            if estancado:
-                recompensa -= self.penal_estancado
 
         obs = self._observar()
         if self.render_mode == "human":

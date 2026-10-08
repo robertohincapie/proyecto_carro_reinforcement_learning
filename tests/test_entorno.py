@@ -26,7 +26,7 @@ def test_choca_a_toda_velocidad_en_linea_recta():
         _, r, term, trunc, info = env.step([1.0, 0.0])
         if term or trunc:
             break
-    assert term and info["choque"] and r < -5
+    assert term and info["choque"] and r > 0  # chocar termina el episodio, no penaliza la recompensa
 
 
 def test_derrape_en_curva_rapida():
