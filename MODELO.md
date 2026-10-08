@@ -22,6 +22,7 @@ También se puede instanciar directo: `from carro_rl import CarroPistaEnv`.
 | `pista` | Nombre (`"ovalo"`, `"circuito"`, `"trebol"`), una `Pista`, un arreglo de puntos de control (K, 2), o una **lista** de pistas (cada `reset` elige una al azar). |
 | `inicio_aleatorio` | Si es `True`, el carro arranca en un punto aleatorio de la pista. |
 | `velocidad_inicial` | Velocidad longitudinal (m/s) con la que arranca el carro en cada reset; 5 por defecto. |
+| `aceleracion_base` | Traccion real (en la escala de `fuerza` de la dinamica, [-1, 1]) que recibe el carro cuando la accion de fuerza es 0; 0.5 por defecto. Evita que el carro se quede quieto si el agente no hace nada. |
 | `observar_dinamica` | `True` (por defecto): la observación incluye velocidades. `False`: solo los 7 rayos. |
 | `alcance` | Distancia máxima de los sensores (60 m). |
 | `max_pasos`, `tiempo_sin_progreso` | Criterios de truncamiento. |
@@ -52,7 +53,15 @@ Modelo de bicicleta con neumáticos que se saturan.
 
 `Box(2)` en [-1, 1]: `[fuerza, dirección]`.
 
-- **fuerza:** positiva es tracción, negativa es freno. Es un solo valor, así que nunca hay ambas a la vez.
+- **fuerza:** no se pasa directo a la dinámica. Se reescala con `aceleracion_base` (0.5 por defecto)
+  de forma que `fuerza = 0` ya empuja al carro con una tracción base de 0.5 (en vez de 0), así el carro
+  no se queda quieto si el agente no hace nada. `fuerza = 1` pide tracción máxima, `fuerza = -1` frena a
+  fondo, y entre 0 y -1 se pasa de la tracción base al frenado total. Es un solo valor, así que nunca hay
+  tracción y freno a la vez. La reescala es lineal a tramos (continua en 0):
+  ```
+  fuerza_real = aceleracion_base + (1 − aceleracion_base) · fuerza        si fuerza ≥ 0
+  fuerza_real = aceleracion_base + (1 + aceleracion_base) · fuerza        si fuerza < 0
+  ```
 - **dirección:** ángulo objetivo del volante, escalado a ±0.5 rad.
 
 ## Observación

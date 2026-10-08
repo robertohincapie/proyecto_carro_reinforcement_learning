@@ -18,7 +18,11 @@ ANGULOS_SENSORES = np.deg2rad([-65.0, -20.0, -10.0, 0.0, 10.0, 20.0, 65.0])
 class CarroPistaEnv(gym.Env):
     """
     Accion (Box, 2): [fuerza, direccion], ambas en [-1, 1].
-        fuerza   > 0 traccion, < 0 frenado (nunca las dos a la vez).
+        fuerza   se reescala antes de pasarla a la dinamica para que fuerza=0 equivalga a
+            una traccion base de `aceleracion_base` (0.5 por defecto): el carro no se queda
+            quieto si el agente no hace nada. fuerza=1 pide traccion maxima, fuerza=-1 frena
+            a fondo; valores intermedios positivos aumentan la traccion por encima de la base
+            y valores negativos la reducen hasta pasar a frenado.
         direccion  angulo objetivo del volante (el real lo sigue con limite de velocidad).
 
     Observacion (Box, 10): distancia de cada sensor al borde de la pista, normalizada
@@ -62,6 +66,7 @@ class CarroPistaEnv(gym.Env):
         inicio_aleatorio: bool = False,
         observar_dinamica: bool = True,
         velocidad_inicial: float = 5.0,
+        aceleracion_base: float = 0.5,
         velocidad_ref: float = 20.0,
         peso_progreso: float = 10.0,
         peso_velocidad: float = 0.5,
@@ -85,6 +90,7 @@ class CarroPistaEnv(gym.Env):
         self.inicio_aleatorio = inicio_aleatorio
         self.observar_dinamica = observar_dinamica
         self.velocidad_inicial = velocidad_inicial
+        self.aceleracion_base = aceleracion_base
         self.velocidad_ref = velocidad_ref
         self.peso_progreso, self.penal_tiempo = peso_progreso, penal_tiempo
         self.peso_velocidad = peso_velocidad
@@ -122,9 +128,10 @@ class CarroPistaEnv(gym.Env):
 
     def step(self, accion):
         accion = np.clip(np.asarray(accion, dtype=float), -1.0, 1.0)
+        fuerza = _reescalar_fuerza(float(accion[0]), self.aceleracion_base)
         h = self.dt / self.subpasos
         for _ in range(self.subpasos):
-            self.estado = dinamica.paso(self.estado, accion[0], accion[1], self.carro, h)
+            self.estado = dinamica.paso(self.estado, fuerza, accion[1], self.carro, h)
         self.pasos += 1
 
         s, lateral = self.pista.proyectar(self.estado[:2])
@@ -210,6 +217,14 @@ class CarroPistaEnv(gym.Env):
             "tiempo_vuelta": self.pasos * self.dt if vuelta else None,
             "pista": self.pista.nombre,
         }
+
+
+def _reescalar_fuerza(accion: float, base: float) -> float:
+    """Reescala la accion en [-1, 1] a la fuerza real (tambien en [-1, 1]) que recibe la
+    dinamica, de modo que accion=0 equivalga a una traccion base de `base` en vez de 0."""
+    if accion >= 0.0:
+        return base + (1.0 - base) * accion
+    return base + (base + 1.0) * accion
 
 
 def _es_puntos(x) -> bool:

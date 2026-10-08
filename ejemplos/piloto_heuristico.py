@@ -17,7 +17,9 @@ def piloto(obs: np.ndarray, ganancia: float = 2.5, k_vel: float = 2.0) -> np.nda
     der = obs[2] + obs[1] + 0.5 * obs[0]
     giro = np.clip(ganancia * (izq - der) / (izq + der + 1e-3), -1, 1)
     frente = min(obs[3], obs[2] + 0.2, obs[4] + 0.2)
-    fuerza = np.clip(k_vel * (frente - 0.25), -1, 1)
+    # Umbral 0.5: con la traccion base del entorno, fuerza=0 ya avanza; solo hace falta
+    # pedir mas cuando el frente esta bien despejado, y frenar cuando esta cerca.
+    fuerza = np.clip(k_vel * (frente - 0.5), -1, 1)
     return np.array([fuerza, giro], dtype=np.float32)
 
 
